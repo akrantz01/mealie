@@ -48,17 +48,24 @@ class PostgresProvider(AbstractDBProvider, BaseSettings):
         if self.POSTGRES_URL_OVERRIDE:
             url = self.POSTGRES_URL_OVERRIDE
 
-            scheme, remainder = url.split("://", 1)
-            if scheme != "postgresql":
+            parts = urlparse.urlparse(url)
+            if parts.scheme != "postgresql":
                 raise ValueError("POSTGRES_URL_OVERRIDE scheme must be postgresql")
 
-            remainder = remainder.split(":", 1)[1]
-            password = remainder[: remainder.rfind("@")]
-            quoted_password = urlparse.quote(password)
+            updated_netloc = ""
+            if parts.username:
+                updated_netloc += parts.username
+            if parts.password:
+                updated_netloc += ":" + urlparse.quote(parts.password)
+            if len(updated_netloc) != 0:
+                updated_netloc += "@"
 
-            safe_url = url.replace(password, quoted_password)
+            updated_netloc += parts.hostname
+            if parts.port:
+                updated_netloc += ":" + str(parts.port)
 
-            return safe_url
+            parts._replace(netloc=updated_netloc)
+            return urlparse.urlunparse(parts)
 
         return str(
             PostgresDsn.build(
